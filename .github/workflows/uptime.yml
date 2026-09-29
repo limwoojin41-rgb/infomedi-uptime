@@ -1,0 +1,35 @@
+name: uptime
+# 예약·수동 실행만. PR 등 외부에서 시작할 수 있는 트리거는 두지 않는다(비밀값 보호).
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+permissions:
+  actions: read
+concurrency: uptime
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: HEAD dash.quokkaboard.tech/healthz
+        env:
+          WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 순간 끊김으로 울리지 않게 30초 간격으로 세 번 본다.
+          ok=0; code=
+          for i in 1 2 3; do
+            code=$(curl -s -I -o /dev/null -m 20 -w '%{http_code}' https://dash.quokkaboard.tech/healthz || true)
+            [ "$code" = 200 ] && { ok=1; break; }
+            [ $i -lt 3 ] && sleep 30
+          done
+          # 상태가 바뀔 때만 알린다: 직전 실행 결과(실패 = 멈춤)와 비교한다.
+          prev=$(gh run list -R "$GITHUB_REPOSITORY" -w uptime.yml --status completed -L 1 --json conclusion -q '.[0].conclusion' 2>/dev/null || true)
+          post() { curl -s -o /dev/null -H 'content-type: application/json' -d "$1" "$WEBHOOK"; }
+          if [ $ok = 0 ]; then
+            [ "$prev" != failure ] && post "{\"embeds\":[{\"title\":\"🚨 서버 대시보드 응답 없음\",\"color\":15158332,\"description\":\"바깥 감시가 30초 간격으로 3번 확인했지만 대시보드가 응답하지 않습니다(마지막 응답 ${code:-없음}). 서버나 대시보드가 멈췄을 수 있습니다.\"}]}"
+            exit 1
+          fi
+          [ "$prev" = failure ] && post '{"embeds":[{"title":"✅ 서버 대시보드 다시 응답","color":5763719,"description":"대시보드가 다시 응답합니다."}]}'
+          true
