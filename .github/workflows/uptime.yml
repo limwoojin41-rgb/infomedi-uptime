@@ -12,7 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - name: HEAD dash.quokkaboard.tech/healthz
+      - name: HEAD dash.quokkaboard.com/healthz
         env:
           WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
           GH_TOKEN: ${{ github.token }}
@@ -20,7 +20,7 @@ jobs:
           # 순간 끊김으로 울리지 않게 30초 간격으로 세 번 본다.
           ok=0; code=
           for i in 1 2 3; do
-            code=$(curl -s -I -o /dev/null -m 20 -w '%{http_code}' https://dash.quokkaboard.tech/healthz || true)
+            code=$(curl -s -I -o /dev/null -m 20 -w '%{http_code}' https://dash.quokkaboard.com/healthz || true)
             [ "$code" = 200 ] && { ok=1; break; }
             [ $i -lt 3 ] && sleep 30
           done
