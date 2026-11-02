@@ -18,11 +18,12 @@ jobs:
           WEBHOOK: ${{ secrets.ZARVY_DISCORD_WEBHOOK }}
           GH_TOKEN: ${{ github.token }}
         run: |
-          # 로그인 화면으로 보내는 302도 정상. 순간 끊김으로 울리지 않게 30초 간격으로 세 번 본다.
+          # 200 · 302(로그인 화면) · 403(접속 허용 IP 밖에서 막음)은 서버가 살아 있다는 뜻. 순간 끊김으로 울리지 않게 30초 간격으로 세 번 본다.
           ok=0; code=
           for i in 1 2 3; do
             code=$(curl -s -o /dev/null -m 20 -w '%{http_code}' "$URL" || true)
-            case "$code" in 200|302) ok=1; break;; esac
+            echo "응답 $code"
+            case "$code" in 200|302|403) ok=1; break;; esac
             [ $i -lt 3 ] && sleep 30
           done
           # 상태가 바뀔 때만 알린다: 직전 실행 결과(실패 = 멈춤)와 비교한다.
